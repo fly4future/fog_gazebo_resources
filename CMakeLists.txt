@@ -61,30 +61,30 @@ add_library(gps_msg SHARED ${GPS_PROTO_SRCS})
 ## |                       compile                              |
 ## --------------------------------------------------------------
 
-link_libraries(gps_msg)
+# link_libraries(gps_msg)
 
-include_directories(
-  include
-  ${gps_msg_INCLUDE_DIRS}
-  ${rclcpp_INCLUDE_DIRS}
-  ${GAZEBO_INCLUDE_DIRS}
-  )
+# include_directories(
+#   include
+#   ${gps_msg_INCLUDE_DIRS}
+#   ${rclcpp_INCLUDE_DIRS}
+#   ${GAZEBO_INCLUDE_DIRS}
+#   )
 
-add_library(gazebo_ros_gps_plugin SHARED src/gazebo_ros_gps_plugin.cpp)
+# add_library(gazebo_ros_gps_plugin SHARED src/gazebo_ros_gps_plugin.cpp)
 
-ament_target_dependencies(gazebo_ros_gps_plugin
-  rclcpp
-  std_msgs
-  std_srvs
-  gazebo
-  gazebo_ros
-  )
+# ament_target_dependencies(gazebo_ros_gps_plugin
+#   rclcpp
+#   std_msgs
+#   std_srvs
+#   gazebo
+#   gazebo_ros
+#   )
 
-target_link_libraries(gazebo_ros_gps_plugin
-  gps_msg
-  ${rclcpp_LIBRARIES}
-  ${GAZEBO_LIBRARIES}
-  )
+# target_link_libraries(gazebo_ros_gps_plugin
+#   gps_msg
+#   ${rclcpp_LIBRARIES}
+#   ${GAZEBO_LIBRARIES}
+#   )
 
 ## --------------------------------------------------------------
 ## |                           install                          |
@@ -113,8 +113,8 @@ install(DIRECTORY
   )
 
 install(TARGETS
-  gazebo_ros_gps_plugin
-  gps_msg
+  # gazebo_ros_gps_plugin
+  # gps_msg
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
