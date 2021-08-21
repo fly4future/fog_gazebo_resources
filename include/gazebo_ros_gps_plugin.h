@@ -30,11 +30,11 @@
 #include <math.h>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <queue>
 #include <random>
 
 #include <sdf/sdf.hh>
-#include <gazebo/common/common.hh>
 
 #include <gazebo/common/Plugin.hh>
 #include <gazebo/gazebo.hh>
@@ -47,8 +47,11 @@
 #include <gazebo/sensors/SensorTypes.hh>
 #include <gazebo/sensors/GpsSensor.hh>
 
+#include <gazebo_ros/node.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <std_srvs/srv/set_bool.hpp>
 
+#include <common.h>
 #include <SITLGps.pb.h>
 
 namespace gazebo
@@ -72,6 +75,9 @@ protected:
   virtual void OnWorldUpdate(const common::UpdateInfo& /*_info*/);
 
 private:
+  bool active_ = true;
+  bool activationCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+
   std::string                     namespace_;
   std::string                     gps_id_;
   std::default_random_engine      random_generator_;
@@ -99,6 +105,10 @@ private:
   common::Time start_time_;
 
   std::mutex data_mutex_;
+  std::mutex active_mutex_;
+
+  gazebo_ros::Node::SharedPtr                      ros_node_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr activation_service_;
 
   // Home defaults to Zurich Irchel Park
   // @note The home position can be specified using the environment variables:

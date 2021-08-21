@@ -1,6 +1,7 @@
 name: simulation
 root: ./
-startup_window: takeoff/land
+# startup_window: takeoff/land
+startup_window: simulation 
 # pre_window: export DRONE_DEVICE_ID=ssrc_fog_x
 pre_window: export DRONE_DEVICE_ID=uav1
 
@@ -49,6 +50,11 @@ windows:
       layout: tiled
       panes:
         - 'history -s ros2 service call /$DRONE_DEVICE_ID/control_interface/land std_srvs/srv/Trigger {}'
+  - gps_plugin:
+      layout: tiled
+      panes:
+        - 'history -s ros2 service call /gazebo/gps_plugin/activate std_srvs/srv/SetBool \"data: false\"'
+        - 'history -s ros2 service call /gazebo/gps_plugin/activate std_srvs/srv/SetBool \"data: true\"'
   - rviz:
       layout: tiled
       panes:

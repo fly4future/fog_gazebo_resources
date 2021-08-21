@@ -27,25 +27,26 @@
 #include <gazebo_ros_gps_plugin.h>
 
 #include <boost/algorithm/string.hpp>
+#include <memory>
+#include <rclcpp/utilities.hpp>
 
 using namespace std;
 
-namespace gazebo {
+namespace gazebo
+{
 GZ_REGISTER_SENSOR_PLUGIN(GazeboRosGpsPlugin)
 
-GazeboRosGpsPlugin::GazeboRosGpsPlugin() : SensorPlugin()
-{ }
+GazeboRosGpsPlugin::GazeboRosGpsPlugin() : SensorPlugin() {
+}
 
-GazeboRosGpsPlugin::~GazeboRosGpsPlugin()
-{
+GazeboRosGpsPlugin::~GazeboRosGpsPlugin() {
   if (updateSensorConnection_)
     updateSensorConnection_->~Connection();
   parentSensor_.reset();
   world_->Reset();
 }
 
-void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
-{
+void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf) {
   // Get then name of the parent sensor
   parentSensor_ = std::dynamic_pointer_cast<sensors::GpsSensor>(_parent);
 
@@ -53,13 +54,11 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
     gzthrow("GazeboRosGpsPlugin requires a GPS Sensor as its parent");
 
   // Get the root model name
-  const string scopedName = _parent->ParentName();
+  const string        scopedName = _parent->ParentName();
   vector<std::string> names_splitted;
   boost::split(names_splitted, scopedName, boost::is_any_of("::"));
-  names_splitted.erase(std::remove_if(begin(names_splitted), end(names_splitted),
-                            [](const string& name)
-                            { return name.size() == 0; }), end(names_splitted));
-  const string rootModelName = names_splitted.front(); // The first element is the name of the root model
+  names_splitted.erase(std::remove_if(begin(names_splitted), end(names_splitted), [](const string& name) { return name.size() == 0; }), end(names_splitted));
+  const string rootModelName = names_splitted.front();  // The first element is the name of the root model
 
   // the second to the last name is the model name
   const string parentSensorModelName = names_splitted.rbegin()[1];
@@ -68,32 +67,32 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   model_name_ = names_splitted[0];
 
   // get gps topic name
-  if(_sdf->HasElement("topic")) {
+  if (_sdf->HasElement("topic")) {
     gps_topic_ = _sdf->GetElement("topic")->Get<std::string>();
   } else {
     // if not set by parameter, get the topic name from the model name
     gps_topic_ = parentSensorModelName;
-    gzwarn << "[gazebo_ros_gps_plugin]: " + names_splitted.front() + "::" + names_splitted.rbegin()[1] +
-      " using gps topic \"" << parentSensorModelName << "\"\n";
+    gzwarn << "[gazebo_ros_gps_plugin]: " + names_splitted.front() + "::" + names_splitted.rbegin()[1] + " using gps topic \"" << parentSensorModelName
+           << "\"\n";
   }
 
   // Store the pointer to the world.
   world_ = physics::get_world(parentSensor_->WorldName());
 
-  #if GAZEBO_MAJOR_VERSION >= 9
-    last_time_ = world_->SimTime();
-    last_gps_time_ = world_->SimTime();
-    start_time_ = world_->StartTime();
-  #else
-    last_time_ = world_->GetSimTime();
-    last_gps_time_ = world_->GetSimTime();
-    start_time_ = world_->GetStartTime();
-  #endif
+#if GAZEBO_MAJOR_VERSION >= 9
+  last_time_     = world_->SimTime();
+  last_gps_time_ = world_->SimTime();
+  start_time_    = world_->StartTime();
+#else
+  last_time_     = world_->GetSimTime();
+  last_gps_time_ = world_->GetSimTime();
+  start_time_    = world_->GetStartTime();
+#endif
 
   // Use environment variables if set for home position.
-  const char *env_lat = std::getenv("PX4_HOME_LAT");
-  const char *env_lon = std::getenv("PX4_HOME_LON");
-  const char *env_alt = std::getenv("PX4_HOME_ALT");
+  const char* env_lat = std::getenv("PX4_HOME_LAT");
+  const char* env_lon = std::getenv("PX4_HOME_LON");
+  const char* env_alt = std::getenv("PX4_HOME_ALT");
 
   // Get noise param
   if (_sdf->HasElement("gpsNoise")) {
@@ -110,7 +109,7 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   } else if (world_has_origin) {
     lat_home_ = world_latitude_;
     gzmsg << "[gazebo_ros_gps_plugin] Home latitude is set to " << lat_home_ << ".\n";
-  } else if(_sdf->HasElement("homeLatitude")) {
+  } else if (_sdf->HasElement("homeLatitude")) {
     double latitude;
     getSdfParam<double>(_sdf, "homeLatitude", latitude, lat_home_);
     lat_home_ = latitude * M_PI / 180.0;
@@ -122,7 +121,7 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   } else if (world_has_origin) {
     lon_home_ = world_longitude_;
     gzmsg << "[gazebo_ros_gps_plugin] Home longitude is set to " << lon_home_ << ".\n";
-  } else if(_sdf->HasElement("homeLongitude")) {
+  } else if (_sdf->HasElement("homeLongitude")) {
     double longitude;
     getSdfParam<double>(_sdf, "homeLongitude", longitude, lon_home_);
     lon_home_ = longitude * M_PI / 180.0;
@@ -134,7 +133,7 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   } else if (world_has_origin) {
     alt_home_ = world_altitude_;
     gzmsg << "[gazebo_ros_gps_plugin] Home altitude is set to " << alt_home_ << ".\n";
-  } else if(_sdf->HasElement("homeAltitude")) {
+  } else if (_sdf->HasElement("homeAltitude")) {
     getSdfParam<double>(_sdf, "homeAltitude", alt_home_, alt_home_);
   }
 
@@ -142,48 +141,42 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   if (_sdf->HasElement("gpsXYRandomWalk")) {
     getSdfParam<double>(_sdf, "gpsXYRandomWalk", gps_xy_random_walk_, kDefaultGpsXYRandomWalk);
   } else {
-    gzwarn << "[gazebo_ros_gps_plugin] Using default random walk in XY plane: "
-           << kDefaultGpsXYRandomWalk << "\n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default random walk in XY plane: " << kDefaultGpsXYRandomWalk << "\n";
   }
 
   // get random walk in Z
   if (_sdf->HasElement("gpsZRandomWalk")) {
     getSdfParam<double>(_sdf, "gpsZRandomWalk", gps_z_random_walk_, kDefaultGpsZRandomWalk);
   } else {
-    gzwarn << "[gazebo_ros_gps_plugin] Using default random walk in Z: "
-           << kDefaultGpsZRandomWalk << "\n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default random walk in Z: " << kDefaultGpsZRandomWalk << "\n";
   }
 
   // get position noise density in XY plane
   if (_sdf->HasElement("gpsXYNoiseDensity")) {
     getSdfParam<double>(_sdf, "gpsXYNoiseDensity", gps_xy_noise_density_, kDefaultGpsXYNoiseDensity);
   } else {
-    gzwarn << "[gazebo_ros_gps_plugin] Using default position noise density in XY plane: "
-           << kDefaultGpsXYNoiseDensity << "\n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default position noise density in XY plane: " << kDefaultGpsXYNoiseDensity << "\n";
   }
 
   // get position noise density in Z
   if (_sdf->HasElement("gpsZNoiseDensity")) {
     getSdfParam<double>(_sdf, "gpsZNoiseDensity", gps_z_noise_density_, kDefaultGpsZNoiseDensity);
   } else {
-    gzwarn << "[gazebo_ros_gps_plugin] Using default position noise density in Z: "
-           << kDefaultGpsZNoiseDensity << "\n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default position noise density in Z: " << kDefaultGpsZNoiseDensity << "\n";
   }
 
   // get velocity noise density in XY plane
   if (_sdf->HasElement("gpsVXYNoiseDensity")) {
     getSdfParam<double>(_sdf, "gpsVXYNoiseDensity", gps_vxy_noise_density_, kDefaultGpsVXYNoiseDensity);
   } else {
-    gzwarn << "[gazebo_ros_gps_plugin] Using default velocity noise density in XY plane: "
-           << kDefaultGpsVXYNoiseDensity << "\n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default velocity noise density in XY plane: " << kDefaultGpsVXYNoiseDensity << "\n";
   }
 
   // get velocity noise density in Z
   if (_sdf->HasElement("gpsVZNoiseDensity")) {
     getSdfParam<double>(_sdf, "gpsVZNoiseDensity", gps_vz_noise_density_, kDefaultGpsVZNoiseDensity);
   } else {
-    gzwarn << "[gazebo_ros_gps_plugin] Using default velocity noise density in Z: "
-           << kDefaultGpsVZNoiseDensity << "\n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default velocity noise density in Z: " << kDefaultGpsVZNoiseDensity << "\n";
   }
 
   namespace_.clear();
@@ -198,8 +191,7 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
     getSdfParam<double>(_sdf, "update_rate", update_rate_, kDefaultUpdateRate);
   } else {
     update_rate_ = kDefaultUpdateRate;
-    gzwarn << "[gazebo_ros_gps_plugin] Using default update rate of "
-           << kDefaultUpdateRate << "hz \n";
+    gzwarn << "[gazebo_ros_gps_plugin] Using default update rate of " << kDefaultUpdateRate << "hz \n";
   }
   parentSensor_->SetUpdateRate(update_rate_);
 
@@ -211,16 +203,30 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf)
   parentSensor_->SetActive(true);
 
   // Listen to the update event. This event is broadcast every simulation iteration.
-  updateWorldConnection_ = event::Events::ConnectWorldUpdateBegin(
-      boost::bind(&GazeboRosGpsPlugin::OnWorldUpdate, this, _1));
+  updateWorldConnection_ = event::Events::ConnectWorldUpdateBegin(boost::bind(&GazeboRosGpsPlugin::OnWorldUpdate, this, _1));
 
   gravity_W_ = world_->Gravity();
 
   gps_pub_ = node_handle_->Advertise<sensor_msgs::msgs::SITLGps>("~/" + model_name_ + "/link/" + gps_topic_, 10);
+
+  // Initiate ROS2 stuff
+  int    argc = 0;
+  char** argv = NULL;
+  if (!rclcpp::is_initialized()) {
+    rclcpp::init(argc, argv);
+  }
+  ros_node_           = gazebo_ros::Node::Get();
+  activation_service_ = ros_node_->create_service<std_srvs::srv::SetBool>(
+      "/gazebo/gps_plugin/activate", std::bind(&GazeboRosGpsPlugin::activationCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
-void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/)
-{
+void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
+
+  std::scoped_lock lock(active_mutex_);
+  if (!active_) {
+    return;
+  }
+
   // Store the pointer to the model.
   if (model_ == NULL)
 #if GAZEBO_MAJOR_VERSION >= 9
@@ -234,17 +240,17 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/)
 #if GAZEBO_MAJOR_VERSION >= 9
   current_time = world_->SimTime();
 #else
-  current_time = world_->GetSimTime();
+  current_time                                = world_->GetSimTime();
 #endif
   double dt = (current_time - last_time_).Double();
 
 #if GAZEBO_MAJOR_VERSION >= 9
   ignition::math::Pose3d T_W_I = model_->WorldPose();
 #else
-  ignition::math::Pose3d T_W_I = ignitionFromGazeboMath(model_->GetWorldPose());
+  ignition::math::Pose3d   T_W_I              = ignitionFromGazeboMath(model_->GetWorldPose());
 #endif
   // Use the model world position for GPS
-  ignition::math::Vector3d& pos_W_I = T_W_I.Pos();
+  ignition::math::Vector3d&    pos_W_I = T_W_I.Pos();
   ignition::math::Quaterniond& att_W_I = T_W_I.Rot();
 
   // Use the models' world position for GPS velocity.
@@ -255,27 +261,26 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/)
 #endif
 
   ignition::math::Vector3d velocity_current_W_xy = velocity_current_W;
-  velocity_current_W_xy.Z() = 0;
+  velocity_current_W_xy.Z()                      = 0;
 
   // update noise parameters if gps_noise_ is set
   if (gps_noise_) {
-    noise_gps_pos_.X() = gps_xy_noise_density_ * sqrt(dt) * randn_(rand_);
-    noise_gps_pos_.Y() = gps_xy_noise_density_ * sqrt(dt) * randn_(rand_);
-    noise_gps_pos_.Z() = gps_z_noise_density_ * sqrt(dt) * randn_(rand_);
-    noise_gps_vel_.X() = gps_vxy_noise_density_ * sqrt(dt) * randn_(rand_);
-    noise_gps_vel_.Y() = gps_vxy_noise_density_ * sqrt(dt) * randn_(rand_);
-    noise_gps_vel_.Z() = gps_vz_noise_density_ * sqrt(dt) * randn_(rand_);
+    noise_gps_pos_.X()   = gps_xy_noise_density_ * sqrt(dt) * randn_(rand_);
+    noise_gps_pos_.Y()   = gps_xy_noise_density_ * sqrt(dt) * randn_(rand_);
+    noise_gps_pos_.Z()   = gps_z_noise_density_ * sqrt(dt) * randn_(rand_);
+    noise_gps_vel_.X()   = gps_vxy_noise_density_ * sqrt(dt) * randn_(rand_);
+    noise_gps_vel_.Y()   = gps_vxy_noise_density_ * sqrt(dt) * randn_(rand_);
+    noise_gps_vel_.Z()   = gps_vz_noise_density_ * sqrt(dt) * randn_(rand_);
     random_walk_gps_.X() = gps_xy_random_walk_ * sqrt(dt) * randn_(rand_);
     random_walk_gps_.Y() = gps_xy_random_walk_ * sqrt(dt) * randn_(rand_);
     random_walk_gps_.Z() = gps_z_random_walk_ * sqrt(dt) * randn_(rand_);
-  }
-  else {
-    noise_gps_pos_.X() = 0.0;
-    noise_gps_pos_.Y() = 0.0;
-    noise_gps_pos_.Z() = 0.0;
-    noise_gps_vel_.X() = 0.0;
-    noise_gps_vel_.Y() = 0.0;
-    noise_gps_vel_.Z() = 0.0;
+  } else {
+    noise_gps_pos_.X()   = 0.0;
+    noise_gps_pos_.Y()   = 0.0;
+    noise_gps_pos_.Z()   = 0.0;
+    noise_gps_vel_.X()   = 0.0;
+    noise_gps_vel_.Y()   = 0.0;
+    noise_gps_vel_.Z()   = 0.0;
     random_walk_gps_.X() = 0.0;
     random_walk_gps_.Y() = 0.0;
     random_walk_gps_.Z() = 0.0;
@@ -288,7 +293,7 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/)
 
   // reproject position with noise into geographic coordinates
   auto pos_with_noise = pos_W_I + noise_gps_pos_ + gps_bias_;
-  auto latlon = reproject(pos_with_noise, lat_home_, lon_home_, alt_home_);
+  auto latlon         = reproject(pos_with_noise, lat_home_, lon_home_, alt_home_);
 
   // fill SITLGps msg
   sensor_msgs::msgs::SITLGps gps_msg;
@@ -306,7 +311,7 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/)
   gps_msg.set_altitude(pos_W_I.Z() + alt_home_ - noise_gps_pos_.Z() + gps_bias_.Z());
 
   std_xy_ = 1.0;
-  std_z_ = 1.0;
+  std_z_  = 1.0;
   gps_msg.set_eph(std_xy_);
   gps_msg.set_epv(std_z_);
 
@@ -327,8 +332,7 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/)
   last_time_ = current_time;
 }
 
-void GazeboRosGpsPlugin::OnSensorUpdate()
-{
+void GazeboRosGpsPlugin::OnSensorUpdate() {
   // protect shared variables
   std::lock_guard<std::mutex> lock(data_mutex_);
 
@@ -350,13 +354,13 @@ void GazeboRosGpsPlugin::OnSensorUpdate()
         break;
       }
 
-      gps_msg = gps_delay_buffer_.front();
+      gps_msg                  = gps_delay_buffer_.front();
       double gps_current_delay = current_time_.Double() - gps_delay_buffer_.front().time_usec() / 1e6f;
 
       // remove data that is too old or if buffer size is too large
       if (gps_current_delay >= gps_delay_) {
         gps_delay_buffer_.pop();
-      // remove data if buffer too large
+        // remove data if buffer too large
       } else if (gps_delay_buffer_.size() > gps_buffer_size_max_) {
         gps_delay_buffer_.pop();
       } else {
@@ -368,4 +372,16 @@ void GazeboRosGpsPlugin::OnSensorUpdate()
     gps_pub_->Publish(gps_msg);
   }
 }
-} // namespace gazebo
+
+bool GazeboRosGpsPlugin::activationCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                                            std::shared_ptr<std_srvs::srv::SetBool::Response>      response) {
+  std::scoped_lock lock(active_mutex_);
+  active_ = request->data;
+  RCLCPP_INFO(ros_node_->get_logger(), "[%s]: GPS plugin %s", ros_node_->get_name(), active_ ? "active" : "inactive");
+
+  response->message = "Success";
+  response->success = true;
+  return true;
+}
+
+}  // namespace gazebo
