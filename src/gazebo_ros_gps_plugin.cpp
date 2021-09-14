@@ -212,7 +212,7 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf) 
   // Initiate ROS2 stuff
   int    argc = 0;
   char** argv = NULL;
-  if (!rclcpp::is_initialized()) {
+  if (!rclcpp::ok()) {
     rclcpp::init(argc, argv);
   }
   ros_node_           = gazebo_ros::Node::Get();
@@ -251,7 +251,7 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
 #endif
   // Use the model world position for GPS
   ignition::math::Vector3d&    pos_W_I = T_W_I.Pos();
-  ignition::math::Quaterniond& att_W_I = T_W_I.Rot();
+  [[maybe_unused]] ignition::math::Quaterniond& att_W_I = T_W_I.Rot();
 
   // Use the models' world position for GPS velocity.
 #if GAZEBO_MAJOR_VERSION >= 9

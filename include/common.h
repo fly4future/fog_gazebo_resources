@@ -287,7 +287,7 @@ inline std::pair<double, double> reproject(ignition::math::Vector3d& pos,
  * @param[in] world ptr to the world
  * @return true if they exist, false otherwise
  */
-inline const bool checkWorldHomePosition(gazebo::physics::WorldPtr& world,
+inline bool checkWorldHomePosition(gazebo::physics::WorldPtr& world,
                                          double& world_latitude,
                                          double& world_longitude,
                                          double& world_altitude)
