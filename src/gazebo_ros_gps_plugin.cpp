@@ -218,13 +218,17 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf) 
   ros_node_           = gazebo_ros::Node::Get();
   activation_service_ = ros_node_->create_service<std_srvs::srv::SetBool>(
       "/gazebo/gps_plugin/activate", std::bind(&GazeboRosGpsPlugin::activationCallback, this, std::placeholders::_1, std::placeholders::_2));
+  set_bad_gps_service_ = ros_node_->create_service<std_srvs::srv::SetBool>(
+      "/gazebo/gps_plugin/set_bad_gps", std::bind(&GazeboRosGpsPlugin::setBadGpsCallback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
 
-  std::scoped_lock lock(active_mutex_);
-  if (!active_) {
-    return;
+  {
+    std::scoped_lock lock(active_mutex_);
+    if (!active_) {
+      return;
+    }
   }
 
   // Store the pointer to the model.
@@ -312,7 +316,17 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
 
   std_xy_ = 1.0;
   std_z_  = 1.0;
-  gps_msg.set_eph(std_xy_);
+
+  {
+    std::scoped_lock lock(set_bad_gps_mutex_);
+    if(bad_gps_){
+      gps_msg.set_eph(2.5);
+    }
+    else{
+      gps_msg.set_eph(std_xy_);
+    }
+  }
+
   gps_msg.set_epv(std_z_);
 
   gps_msg.set_velocity_east(velocity_current_W.X() + noise_gps_vel_.Y());
@@ -378,6 +392,17 @@ bool GazeboRosGpsPlugin::activationCallback(const std::shared_ptr<std_srvs::srv:
   std::scoped_lock lock(active_mutex_);
   active_ = request->data;
   RCLCPP_INFO(ros_node_->get_logger(), "[%s]: GPS plugin %s", ros_node_->get_name(), active_ ? "active" : "inactive");
+
+  response->message = "Success";
+  response->success = true;
+  return true;
+}
+
+bool GazeboRosGpsPlugin::setBadGpsCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                                            std::shared_ptr<std_srvs::srv::SetBool::Response>      response) {
+  std::scoped_lock lock(set_bad_gps_mutex_);
+  bad_gps_ = request->data;
+  RCLCPP_INFO(ros_node_->get_logger(), "[%s]: GPS quality is %s", ros_node_->get_name(), bad_gps_ ? "bad" : "good");
 
   response->message = "Success";
   response->success = true;

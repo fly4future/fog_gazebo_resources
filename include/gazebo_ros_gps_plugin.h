@@ -76,7 +76,9 @@ protected:
 
 private:
   bool active_ = true;
+  bool bad_gps_ = false;
   bool activationCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  bool setBadGpsCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
   std::string                     namespace_;
   std::string                     gps_id_;
@@ -106,9 +108,11 @@ private:
 
   std::mutex data_mutex_;
   std::mutex active_mutex_;
+  std::mutex set_bad_gps_mutex_;
 
   gazebo_ros::Node::SharedPtr                      ros_node_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr activation_service_;
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr set_bad_gps_service_;
 
   // Home defaults to Zurich Irchel Park
   // @note The home position can be specified using the environment variables:
