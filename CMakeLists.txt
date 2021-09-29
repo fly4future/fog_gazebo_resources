@@ -49,11 +49,12 @@ foreach(ITR ${GAZEBO_INCLUDE_DIRS})
   endif()
 endforeach()
 
-set(gps_msg
+set(proto_msg
   msgs/SITLGps.proto
+  msgs/Range.proto
   )
 
-PROTOBUF_GENERATE_CPP(GPS_PROTO_SRCS GPS_PROTO_HDRS ${gps_msg})
+PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${proto_msg})
 
 ## --------------------------------------------------------------
 ## |                       compile                              |
@@ -68,7 +69,7 @@ include_directories(
   ${GAZEBO_INCLUDE_DIRS}
   )
 
-add_library(gazebo_ros_gps_plugin SHARED src/gazebo_ros_gps_plugin.cpp ${GPS_PROTO_SRCS})
+add_library(gazebo_ros_gps_plugin SHARED src/gazebo_ros_gps_plugin.cpp ${PROTO_SRCS})
 
 ament_target_dependencies(gazebo_ros_gps_plugin
   rclcpp
@@ -79,6 +80,20 @@ ament_target_dependencies(gazebo_ros_gps_plugin
   )
 
 target_link_libraries(gazebo_ros_gps_plugin
+  ${rclcpp_LIBRARIES}
+  ${GAZEBO_LIBRARIES}
+  )
+
+add_library(gazebo_range_plugin SHARED src/gazebo_range_plugin.cpp ${PROTO_SRCS})
+
+ament_target_dependencies(gazebo_range_plugin
+  rclcpp
+  sensor_msgs
+  gazebo
+  gazebo_ros
+  )
+
+target_link_libraries(gazebo_range_plugin
   ${rclcpp_LIBRARIES}
   ${GAZEBO_LIBRARIES}
   )
@@ -111,6 +126,7 @@ install(DIRECTORY
 
 install(TARGETS
   gazebo_ros_gps_plugin
+  gazebo_range_plugin
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
