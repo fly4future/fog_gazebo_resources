@@ -96,13 +96,13 @@ void GazeboRosRangeSensor::Load(gazebo::sensors::SensorPtr _sensor, sdf::Element
   // Create ros_node configured from sdf
   impl_->ros_node_ = gazebo_ros::Node::Get(_sdf);
 
-  // Get QoS profiles
-  const gazebo_ros::QoS& qos = impl_->ros_node_->get_qos();
+  /* // Get QoS profiles */
+  /* const gazebo_ros::QoS& qos = impl_->ros_node_->get_qos(); */
 
-  // Get QoS profile for the publisher
-  rclcpp::QoS pub_qos = qos.get_publisher_qos("~/out", rclcpp::SensorDataQoS().reliable());
+  /* // Get QoS profile for the publisher */
+  /* rclcpp::QoS pub_qos = qos.get_publisher_qos("~/out", rclcpp::SensorDataQoS().reliable()); */
 
-  impl_->pub_ = impl_->ros_node_->create_publisher<sensor_msgs::msg::Range>("~/out", pub_qos);
+  /* impl_->pub_ = impl_->ros_node_->create_publisher<sensor_msgs::msg::Range>("~/out", pub_qos); */
 
   // Get tf frame for output
   impl_->frame_name_ = gazebo_ros::SensorFrameID(*_sensor, *_sdf);
@@ -209,7 +209,7 @@ void GazeboRosRangeSensorPrivate::PublishRange(ConstLaserScanStampedPtr& _msg) {
   proto_range_msg.set_allocated_orientation(new gazebo::msgs::Quaternion(orientation_));
 
   // Publish ROS msg output
-  pub_->publish(range_msg);
+  /* pub_->publish(range_msg); */
 
   // Publish gazebo msg output
   gazebo_pub_->Publish(proto_range_msg);
