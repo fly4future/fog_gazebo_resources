@@ -193,6 +193,15 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf) 
     update_rate_ = kDefaultUpdateRate;
     gzwarn << "[gazebo_ros_gps_plugin] Using default update rate of " << kDefaultUpdateRate << "hz \n";
   }
+
+  // Get groundtruth rate
+  if (_sdf->HasElement("groundtruth_update_rate")) {
+    getSdfParam<double>(_sdf, "groundtruth_update_rate", groundtruth_update_rate_, kDefaultGroundthruthUpdateRate);
+  } else {
+    groundtruth_update_rate_ = kDefaultGroundthruthUpdateRate;
+    gzwarn << "[gazebo_ros_gps_plugin] Using default update rate for groundtruth of " << kDefaultGroundthruthUpdateRate << "hz \n";
+  }
+
   parentSensor_->SetUpdateRate(update_rate_);
 
   node_handle_ = transport::NodePtr(new transport::Node());
@@ -220,6 +229,19 @@ void GazeboRosGpsPlugin::Load(sensors::SensorPtr _parent, sdf::ElementPtr _sdf) 
       "/gazebo/gps_plugin/activate", std::bind(&GazeboRosGpsPlugin::activationCallback, this, std::placeholders::_1, std::placeholders::_2));
   set_bad_gps_service_ = ros_node_->create_service<std_srvs::srv::SetBool>(
       "/gazebo/gps_plugin/set_bad_gps", std::bind(&GazeboRosGpsPlugin::setBadGpsCallback, this, std::placeholders::_1, std::placeholders::_2));
+
+  rclcpp::QoS qos(rclcpp::KeepLast(3));
+  groundtruth_pub_ = ros_node_->create_publisher<nav_msgs::msg::Odometry>("/" + model_name_ + "/groundtruth", qos);
+
+  groundtruth_msg_.header.frame_id = "gazebo_world";
+
+  timer_groundtruth_ =
+      ros_node_->create_wall_timer(std::chrono::duration<double>(1.0 / groundtruth_update_rate_), std::bind(&GazeboRosGpsPlugin::GroundtruthRoutine, this));
+}
+
+void GazeboRosGpsPlugin::GroundtruthRoutine(void) {
+    std::scoped_lock lock(groundtruth_mutex_);
+    groundtruth_pub_->publish(groundtruth_msg_);
 }
 
 void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
@@ -244,24 +266,26 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
 #if GAZEBO_MAJOR_VERSION >= 9
   current_time = world_->SimTime();
 #else
-  current_time                                = world_->GetSimTime();
+  current_time                                        = world_->GetSimTime();
 #endif
   double dt = (current_time - last_time_).Double();
 
 #if GAZEBO_MAJOR_VERSION >= 9
   ignition::math::Pose3d T_W_I = model_->WorldPose();
 #else
-  ignition::math::Pose3d   T_W_I              = ignitionFromGazeboMath(model_->GetWorldPose());
+  ignition::math::Pose3d   T_W_I                      = ignitionFromGazeboMath(model_->GetWorldPose());
 #endif
   // Use the model world position for GPS
-  ignition::math::Vector3d&    pos_W_I = T_W_I.Pos();
+  ignition::math::Vector3d&                     pos_W_I = T_W_I.Pos();
   [[maybe_unused]] ignition::math::Quaterniond& att_W_I = T_W_I.Rot();
 
   // Use the models' world position for GPS velocity.
 #if GAZEBO_MAJOR_VERSION >= 9
-  ignition::math::Vector3d velocity_current_W = model_->WorldLinearVel();
+  ignition::math::Vector3d velocity_current_W         = model_->WorldLinearVel();
+  ignition::math::Vector3d angular_velocity_current_W = model_->WorldAngularVel();
 #else
-  ignition::math::Vector3d velocity_current_W = ignitionFromGazeboMath(model_->GetWorldLinearVel());
+  ignition::math::Vector3d velocity_current_W         = ignitionFromGazeboMath(model_->GetWorldLinearVel());
+  ignition::math::Vector3d angular_velocity_current_W = ignitionFromGazeboMath(model_->GetWorldAngularVel());
 #endif
 
   ignition::math::Vector3d velocity_current_W_xy = velocity_current_W;
@@ -299,6 +323,29 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
   auto pos_with_noise = pos_W_I + noise_gps_pos_ + gps_bias_;
   auto latlon         = reproject(pos_with_noise, lat_home_, lon_home_, alt_home_);
 
+  // fill groundtruth
+  {
+    std::lock_guard<std::mutex> lock(groundtruth_mutex_);
+    groundtruth_msg_.header.stamp = ros_node_->get_clock()->now();
+
+    groundtruth_msg_.pose.pose.position.x = pos_W_I.X();
+    groundtruth_msg_.pose.pose.position.y = pos_W_I.Y();
+    groundtruth_msg_.pose.pose.position.z = pos_W_I.Z();
+
+    groundtruth_msg_.pose.pose.orientation.x = att_W_I.X();
+    groundtruth_msg_.pose.pose.orientation.y = att_W_I.Y();
+    groundtruth_msg_.pose.pose.orientation.z = att_W_I.Z();
+    groundtruth_msg_.pose.pose.orientation.w = att_W_I.W();
+
+    groundtruth_msg_.twist.twist.linear.x = velocity_current_W.X();
+    groundtruth_msg_.twist.twist.linear.y = velocity_current_W.Y();
+    groundtruth_msg_.twist.twist.linear.z = velocity_current_W.Z();
+
+    groundtruth_msg_.twist.twist.angular.x = angular_velocity_current_W.X();
+    groundtruth_msg_.twist.twist.angular.y = angular_velocity_current_W.Y();
+    groundtruth_msg_.twist.twist.angular.z = angular_velocity_current_W.Z();
+  }
+
   // fill SITLGps msg
   sensor_msgs::msgs::SITLGps gps_msg;
 
@@ -319,10 +366,9 @@ void GazeboRosGpsPlugin::OnWorldUpdate(const common::UpdateInfo& /*_info*/) {
 
   {
     std::scoped_lock lock(set_bad_gps_mutex_);
-    if(bad_gps_){
+    if (bad_gps_) {
       gps_msg.set_eph(2.5);
-    }
-    else{
+    } else {
       gps_msg.set_eph(std_xy_);
     }
   }
@@ -399,7 +445,7 @@ bool GazeboRosGpsPlugin::activationCallback(const std::shared_ptr<std_srvs::srv:
 }
 
 bool GazeboRosGpsPlugin::setBadGpsCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
-                                            std::shared_ptr<std_srvs::srv::SetBool::Response>      response) {
+                                           std::shared_ptr<std_srvs::srv::SetBool::Response>      response) {
   std::scoped_lock lock(set_bad_gps_mutex_);
   bad_gps_ = request->data;
   RCLCPP_INFO(ros_node_->get_logger(), "[%s]: GPS quality is %s", ros_node_->get_name(), bad_gps_ ? "bad" : "good");

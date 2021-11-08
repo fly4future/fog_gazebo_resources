@@ -18,6 +18,7 @@ find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 
 # -------------------------- #
 # PROTOBUF MESSAGE GENERATOR #
@@ -77,6 +78,7 @@ ament_target_dependencies(gazebo_ros_gps_plugin
   std_srvs
   gazebo
   gazebo_ros
+  nav_msgs
   )
 
 target_link_libraries(gazebo_ros_gps_plugin

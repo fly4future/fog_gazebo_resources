@@ -50,19 +50,21 @@
 #include <gazebo_ros/node.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/set_bool.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 
 #include <common.h>
 #include <SITLGps.pb.h>
 
 namespace gazebo
 {
-static constexpr double kDefaultUpdateRate         = 5.0;     // hz
-static constexpr double kDefaultGpsXYRandomWalk    = 2.0;     // (m/s) / sqrt(hz)
-static constexpr double kDefaultGpsZRandomWalk     = 4.0;     // (m/s) / sqrt(hz)
-static constexpr double kDefaultGpsXYNoiseDensity  = 2.0e-4;  // (m) / sqrt(hz)
-static constexpr double kDefaultGpsZNoiseDensity   = 4.0e-4;  // (m) / sqrt(hz)
-static constexpr double kDefaultGpsVXYNoiseDensity = 0.2;     // (m/s) / sqrt(hz)
-static constexpr double kDefaultGpsVZNoiseDensity  = 0.4;     // (m/s) / sqrt(hz)
+static constexpr double kDefaultUpdateRate             = 5.0;     // hz
+static constexpr double kDefaultGroundthruthUpdateRate = 100.0;   // hz
+static constexpr double kDefaultGpsXYRandomWalk        = 2.0;     // (m/s) / sqrt(hz)
+static constexpr double kDefaultGpsZRandomWalk         = 4.0;     // (m/s) / sqrt(hz)
+static constexpr double kDefaultGpsXYNoiseDensity      = 2.0e-4;  // (m) / sqrt(hz)
+static constexpr double kDefaultGpsZNoiseDensity       = 4.0e-4;  // (m) / sqrt(hz)
+static constexpr double kDefaultGpsVXYNoiseDensity     = 0.2;     // (m/s) / sqrt(hz)
+static constexpr double kDefaultGpsVZNoiseDensity      = 0.4;     // (m/s) / sqrt(hz)
 
 class GAZEBO_VISIBLE GazeboRosGpsPlugin : public SensorPlugin {
 public:
@@ -75,10 +77,11 @@ protected:
   virtual void OnWorldUpdate(const common::UpdateInfo& /*_info*/);
 
 private:
-  bool active_ = true;
+  bool active_  = true;
   bool bad_gps_ = false;
   bool activationCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, std::shared_ptr<std_srvs::srv::SetBool::Response> response);
   bool setBadGpsCallback(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  void GroundtruthRoutine();
 
   std::string                     namespace_;
   std::string                     gps_id_;
@@ -95,8 +98,11 @@ private:
   event::ConnectionPtr  updateWorldConnection_;
   event::ConnectionPtr  updateSensorConnection_;
 
-  transport::NodePtr      node_handle_;
-  transport::PublisherPtr gps_pub_;
+  nav_msgs::msg::Odometry groundtruth_msg_;
+
+  transport::NodePtr                                    node_handle_;
+  transport::PublisherPtr                               gps_pub_;
+  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr groundtruth_pub_;
 
   std::string gps_topic_;
   double      update_rate_;
@@ -107,10 +113,11 @@ private:
   common::Time start_time_;
 
   std::mutex data_mutex_;
+  std::mutex groundtruth_mutex_;
   std::mutex active_mutex_;
   std::mutex set_bad_gps_mutex_;
 
-  gazebo_ros::Node::SharedPtr                      ros_node_;
+  gazebo_ros::Node::SharedPtr                        ros_node_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr activation_service_;
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr set_bad_gps_service_;
 
@@ -148,6 +155,10 @@ private:
   double                          gps_z_noise_density_;
   double                          gps_vxy_noise_density_;
   double                          gps_vz_noise_density_;
+
+  // groundtruth
+  double                       groundtruth_update_rate_;
+  rclcpp::TimerBase::SharedPtr timer_groundtruth_;
 };  // class GAZEBO_VISIBLE GazeboRosGpsPlugin
 }  // namespace gazebo
 #endif  // _GAZEBO_ROS_GPS_PLUGIN_HH_
