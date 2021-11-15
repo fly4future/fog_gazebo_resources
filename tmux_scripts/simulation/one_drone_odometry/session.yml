@@ -19,6 +19,10 @@ windows:
       layout: tiled
       panes:
         - ros2 launch control_interface control_interface.py use_sim_time:=true
+  - odometry:
+      layout: tiled
+      panes:
+        - ros2 launch odometry2 odometry2_simulation.py
   - sensors:
       layout: tiled
       panes:
