@@ -4,6 +4,13 @@ SCRIPT=$(readlink -f $0)
 # Absolute path this script is in. /home/user/bin
 SCRIPTPATH=`dirname $SCRIPT`
 
+if [[ $# -le 2 ]]; then 
+  uav_id=0 
+else
+  uav_id=$3
+fi
+export MAV_SYS_ID="${uav_id}"
+
 set -e
 
 px4_firmware_path="$1"
@@ -37,10 +44,10 @@ mkdir -p "$rootfs"
 modelpath=$models_path
 
 echo "Recompiling model using Jinja"
-python3 ${src_path}/Tools/sitl_gazebo/scripts/jinja_gen.py ${src_path}/Tools/sitl_gazebo/models/${model}/${model}.sdf.jinja ${src_path}/Tools/sitl_gazebo --mavlink_tcp_port 4560 --mavlink_udp_port 14560 --mavlink_id 1 --gst_udp_port 5600 --video_uri 5600 --mavlink_cam_udp_port 14530 --output-file /tmp/${model_name}.sdf --vehicle_name ${model_name}
+python3 ${src_path}/Tools/sitl_gazebo/scripts/jinja_gen.py ${src_path}/Tools/sitl_gazebo/models/${model}/${model}.sdf.jinja ${src_path}/Tools/sitl_gazebo --mavlink_tcp_port $((4560+${uav_id})) --mavlink_udp_port $((14560+${uav_id})) --mavlink_id $((1+${uav_id})) --gst_udp_port $((5600+${uav_id})) --video_uri $((5600+${uav_id})) --mavlink_cam_udp_port $((14530+${uav_id})) --output-file /tmp/${model_name}.sdf --vehicle_name ${model_name}
 
 echo "Spawning model: /tmp/${model_name}.sdf"
-while gz model --verbose --spawn-file="/tmp/${model_name}.sdf" -m ${model_name} -x 1.01 -y 0.98 -z 0.83 2>&1 | grep -q "An instance of Gazebo is not running."; do
+while gz model --verbose --spawn-file="/tmp/${model_name}.sdf" -m ${model_name} -x $((1+${uav_id}*2)) -y $((1+${uav_id}*2)) -z 0.5 2>&1 | grep -q "An instance of Gazebo is not running."; do
   echo "gzserver not ready yet, trying again!"
   sleep 1
 done
@@ -52,7 +59,7 @@ pushd "$rootfs" >/dev/null
 # Do not exit on failure now from here on because we want the complete cleanup
 set +e
 
-sitl_command="\"$sitl_bin\" $no_pxh \"$build_path\"/etc -s etc/init.d-posix/rcS -t \"$src_path\"/test_data"
+sitl_command="\"$sitl_bin\" -i ${uav_id} -d \"$build_path/etc\" -w sitl_${model_name} -s etc/init.d-posix/rcS -t \"$src_path/test_data\""
 
 echo SITL COMMAND: $sitl_command
 
