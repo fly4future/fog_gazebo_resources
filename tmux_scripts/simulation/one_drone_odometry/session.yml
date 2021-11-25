@@ -32,7 +32,7 @@ windows:
   - odometry:
       layout: tiled
       panes:
-        - ros2 launch odometry2 odometry2.py use_sim_time:=true
+        - ros2 launch odometry2 odometry.py use_sim_time:=true
   - navigation:
       layout: even-vertical
       panes:
