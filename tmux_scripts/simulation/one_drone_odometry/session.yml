@@ -28,7 +28,7 @@ windows:
   - control:
       layout: tiled
       panes:
-        - ros2 launch control_interface control_interface.py use_sim_time:=true
+        - ros2 launch control_interface control_interface.py use_sim_time:=true device_url:="udp://:14540"
   - odometry:
       layout: tiled
       panes:
