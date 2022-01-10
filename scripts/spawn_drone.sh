@@ -14,11 +14,8 @@ export MAV_SYS_ID="${uav_id}"
 set -e
 
 px4_firmware_path="$1"
-program="gazebo"
 model_name="$2"
 model="ssrc_fog_x"
-world="forest.world"
-worlds_path="$SCRIPTPATH/../worlds"
 verbose="--verbose"
 
 src_path="$px4_firmware_path"
@@ -31,10 +28,7 @@ models_path="$px4_firmware_path/Tools/sitl_gazebo/models"
 echo SITL ARGS
 
 echo sitl_bin: $sitl_bin
-echo debugger: $debugger
-echo program: $program
 echo model: $model
-echo world: $world
 echo src_path: $src_path
 echo build_path: $build_path
 
@@ -44,7 +38,7 @@ mkdir -p "$rootfs"
 modelpath=$models_path
 
 echo "Recompiling model using Jinja"
-python3 ${src_path}/Tools/sitl_gazebo/scripts/jinja_gen.py ${src_path}/Tools/sitl_gazebo/models/${model}/${model}.sdf.jinja ${src_path}/Tools/sitl_gazebo --mavlink_tcp_port $((4560+${uav_id})) --mavlink_udp_port $((14560+${uav_id})) --mavlink_id $((1+${uav_id})) --gst_udp_port $((5600+${uav_id})) --video_uri $((5600+${uav_id})) --mavlink_cam_udp_port $((14530+${uav_id})) --output-file /tmp/${model_name}.sdf --vehicle_name ${model_name}
+python3 ${src_path}/Tools/sitl_gazebo/scripts/jinja_gen.py ${src_path}/Tools/sitl_gazebo/models/${model}/${model}.sdf.jinja ${src_path}/Tools/sitl_gazebo --mavlink_tcp_port $((4560+${uav_id})) --mavlink_udp_port $((14560+${uav_id})) --mavlink_id $((1+${uav_id})) --gstudpport $((5600+${uav_id})) --video_uri $((5600+${uav_id})) --mavlink_cam_udp_port $((14530+${uav_id})) --output-file /tmp/${model_name}.sdf --vehicle_name ${model_name}
 
 echo "Spawning model: /tmp/${model_name}.sdf"
 while gz model --verbose --spawn-file="/tmp/${model_name}.sdf" -m ${model_name} -x $((1+${uav_id}*2)) -y $((1+${uav_id}*2)) -z 0.5 2>&1 | grep -q "An instance of Gazebo is not running."; do
