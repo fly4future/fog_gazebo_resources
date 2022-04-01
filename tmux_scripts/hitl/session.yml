@@ -1,0 +1,83 @@
+name: simulation
+root: ./
+startup_window: control
+pre_window: export DRONE_DEVICE_ID=uav1
+
+windows:
+  - simulation:
+      layout: tiled
+      panes:
+        - ros2 launch fog_gazebo_resources gazebo.launch.py world:=`ros2 pkg prefix fog_gazebo_resources`/worlds/grass_plane.world gdb:=false gui:=true
+        - sleep 5; bash `ros2 pkg prefix fog_gazebo_resources`/scripts/hitl_drone.sh ~/git/px4_firmware $DRONE_DEVICE_ID
+  - protocol_splitter:
+      layout: tiled
+      panes:
+        - exec ~/git/agent_protocol_splitter/build/protocol_splitter -b 2000000 -d /dev/ttyUSB1 -x 14540 -w 14580 -y 2019 -z 2020
+  - micrortps_agent:
+      layout: tiled
+      panes:
+        - micrortps_agent -b 2000000 -t UDP -r 2020 -s 2019 -n $DRONE_DEVICE_ID -a 127.0.0.1
+  - sensors:
+      layout: tiled
+      panes:
+        - ros2 launch rplidar_ros2 static_tf_launch.py use_sim_time:=true
+  - bumper:
+      layout: tiled
+      panes:
+        - ros2 launch fog_bumper bumper_launch.py use_sim_time:=true
+  - control:
+      layout: tiled
+      panes:
+        - ros2 launch control_interface control_interface.py use_sim_time:=true device_url:="udp://:14540"
+  - odometry:
+      layout: tiled
+      panes:
+        - ros2 launch odometry2 odometry.py use_sim_time:=true
+  - navigation:
+      layout: even-vertical
+      panes:
+        - ros2 launch navigation navigation.py use_sim_time:=true
+  - navigation_client:
+      layout: even-vertical
+      panes:
+        - python3 ~/ros2_workspace/src/navigation/scripts/action_client_node.py
+        # - history -s "python3 ~/ros2_workspace/src/navigation/scripts/testing_examples/service_example.py"
+        - 'history -s ros2 service call /navigation_action_client/local_waypoint fog_msgs/srv/Vec4 \"goal: \[5, 12, 2, 0\]\"'
+        # - 'history -s ros2 service call /navigation_action_client/gps_waypoint fog_msgs/srv/Vec4 \"goal: \[47.397708, 8.5456038, 4, 0\]\"'
+        - 'history -s ros2 service call /navigation_action_client/cancel_goal  std_srvs/srv/Trigger {}'
+  - octomap_server:
+      layout: tiled
+      panes:
+        - ros2 launch octomap_server2 octomap_server.py use_sim_time:=true
+  - takeoff:
+      layout: tiled
+      panes:
+        - 'history -s ros2 service call /$DRONE_DEVICE_ID/control_interface/arming std_srvs/srv/SetBool \"data: true\"'
+        - 'history -s ros2 service call /$DRONE_DEVICE_ID/control_interface/takeoff std_srvs/srv/Trigger {}'
+  - goto_local:
+      layout: even-vertical
+      panes:
+        - 'history -s ros2 service call /navigation_action_client/local_waypoint fog_msgs/srv/Vec4 \"goal: \[5, 12, 2, 0\]\"'
+  - goto_gps:
+      layout: even-vertical
+      panes:
+        - 'history -s ros2 service call /$DRONE_DEVICE_ID/navigation/gps_waypoint fog_msgs/srv/Vec4 \"goal: \[47.397708, 8.5456038, 4, 0\]\"'
+        - 'history -s ros2 service call /$DRONE_DEVICE_ID/navigation/gps_waypoint fog_msgs/srv/Vec4 \"goal: \[47.3977, 8.54559, 4, 0\]\"'
+        - 'history -s ros2 run navigation waypoint_publisher.py'
+  - land:
+      layout: tiled
+      panes:
+        - 'history -s ros2 service call /$DRONE_DEVICE_ID/control_interface/land std_srvs/srv/Trigger {}'
+  - gps_plugin:
+      layout: tiled
+      panes:
+        - 'history -s ros2 service call /gazebo/gps_plugin/activate std_srvs/srv/SetBool \"data: false\"'
+        - 'history -s ros2 service call /gazebo/gps_plugin/activate std_srvs/srv/SetBool \"data: true\"'
+  - robot_description:
+      layout: tiled
+      panes:
+        - ros2 launch fog_rviz_plugins load_robot_launch.py use_sim_time:=true
+  - rviz:
+      layout: tiled
+      panes:
+        - ros2 launch octomap_server2 rviz_launch.py
